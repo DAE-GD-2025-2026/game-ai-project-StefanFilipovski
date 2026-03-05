@@ -6,7 +6,6 @@
 // Sets default values
 ASteeringAgent::ASteeringAgent()
 {
-	// Set this character to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
 }
 
@@ -28,8 +27,18 @@ void ASteeringAgent::Tick(float DeltaTime)
 
 	if (SteeringBehavior)
 	{
-		SteeringOutput output = SteeringBehavior->CalculateSteering(DeltaTime, *this);
-		AddMovementInput(FVector{output.LinearVelocity, 0.f});
+		SteeringOutput Output = SteeringBehavior->CalculateSteering(DeltaTime, *this);
+
+		// Handle linear movement
+		AddMovementInput(FVector{ Output.LinearVelocity, 0.f });
+
+		// Handle angular velocity 
+		if (!FMath::IsNearlyZero(Output.AngularVelocity))
+		{
+			FRotator CurrentRotation = GetActorRotation();
+			CurrentRotation.Yaw += Output.AngularVelocity;
+			SetActorRotation(CurrentRotation);
+		}
 	}
 }
 
@@ -43,4 +52,3 @@ void ASteeringAgent::SetSteeringBehavior(ISteeringBehavior* NewSteeringBehavior)
 {
 	SteeringBehavior = NewSteeringBehavior;
 }
-

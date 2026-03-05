@@ -10,7 +10,6 @@
 // Sets default values
 ALevel_SteeringBehaviors::ALevel_SteeringBehaviors()
 {
-	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
 }
 
@@ -45,27 +44,27 @@ void ALevel_SteeringBehaviors::Tick(float DeltaTime)
 	ImGui::Text("WASD: move cam");
 	ImGui::Text("Scrollwheel: zoom cam");
 	ImGui::Unindent();
-	
+
 	ImGui::Spacing();
 	ImGui::Separator();
 	ImGui::Spacing();
 	ImGui::Spacing();
-	
+
 	ImGui::Text("STATS");
 	ImGui::Indent();
 	ImGui::Text("%.3f ms/frame", 1000.0f / ImGui::GetIO().Framerate);
 	ImGui::Text("%.1f FPS", ImGui::GetIO().Framerate);
 	ImGui::Unindent();
-	
+
 	ImGui::Spacing();
 	ImGui::Separator();
 	ImGui::Spacing();
 	ImGui::Spacing();
-	
+
 	ImGui::Text("Steering Behaviors");
 	ImGui::Spacing();
 	ImGui::Spacing();
-	
+
 	ImGui::Checkbox("Trim World", &TrimWorld->bShouldTrimWorld);
 	if (TrimWorld->bShouldTrimWorld)
 	{
@@ -80,12 +79,12 @@ void ALevel_SteeringBehaviors::Tick(float DeltaTime)
 		AddAgent(BehaviorTypes::Seek);
 	ImGui::Separator();
 
-	for (int i{0}; i < SteeringAgents.size(); ++i)
+	for (int i{ 0 }; i < SteeringAgents.size(); ++i)
 	{
 		ImGui::PushID(i);
 		ImGui_Agent& a = SteeringAgents[i];
-		
-		std::string agentHeader{std::format("Agent {}:", i)};
+
+		std::string agentHeader{ std::format("Agent {}:", i) };
 		if (ImGui::CollapsingHeader(agentHeader.c_str()))
 		{
 			ImGui::Indent();
@@ -104,7 +103,7 @@ void ALevel_SteeringBehaviors::Tick(float DeltaTime)
 				if (ImGui::SliderFloat("Mass ", &v, 0.f, 100.f, "%.2f"))
 					a.Agent->SetMass(v);
 			}
-			
+
 			bool bBehaviourModified = false;
 
 			ImGui::Spacing();
@@ -113,25 +112,25 @@ void ALevel_SteeringBehaviors::Tick(float DeltaTime)
 			ImGui::SameLine();
 			ImGui::PushItemWidth(100);
 
-			// Add the names of your steering behaviors
-			if (ImGui::Combo("", &a.SelectedBehavior, "Seek\0Wander\0Flee\0Arrive\0Evade\0Pursuit", 4))
+			// Behavior names match BehaviorTypes enum order: Seek, Wander, Flee, Arrive, Evade, Pursuit, Face
+			if (ImGui::Combo("", &a.SelectedBehavior, "Seek\0Wander\0Flee\0Arrive\0Evade\0Pursuit\0Face", 7))
 			{
 				bBehaviourModified = true;
 			}
 			ImGui::PopItemWidth();
 			ImGui::PopID();
 
-			
+
 			ImGui::Spacing();
 			ImGui::PushID(i + 100);
 			ImGui::Text(" Target: ");
 			ImGui::SameLine();
 			ImGui::PushItemWidth(100);
-			
+
 			int selectedTargetOffset = a.SelectedTarget + 1;
-			std::string const Label{""};
+			std::string const Label{ "" };
 			std::string Targets{};
-			for (auto const & Target : TargetLabels)
+			for (auto const& Target : TargetLabels)
 			{
 				Targets += Target;
 				Targets += '\0';
@@ -141,13 +140,13 @@ void ALevel_SteeringBehaviors::Tick(float DeltaTime)
 				a.SelectedTarget = selectedTargetOffset - 1;
 				bBehaviourModified = true;
 			}
-			
+
 			ImGui::PopItemWidth();
 			ImGui::PopID();
 			ImGui::Spacing();
 			ImGui::Spacing();
-			
-			
+
+
 			if (bBehaviourModified)
 				SetAgentBehavior(a);
 
@@ -167,7 +166,7 @@ void ALevel_SteeringBehaviors::Tick(float DeltaTime)
 			ImGui::Unindent();
 		}
 #pragma endregion 
-		
+
 		ImGui::PopID();
 	}
 
@@ -176,7 +175,7 @@ void ALevel_SteeringBehaviors::Tick(float DeltaTime)
 		RemoveAgent(AgentIndexToRemove);
 		AgentIndexToRemove = -1;
 	}
-	
+
 	ImGui::End();
 #pragma endregion
 
@@ -192,16 +191,16 @@ void ALevel_SteeringBehaviors::Tick(float DeltaTime)
 bool ALevel_SteeringBehaviors::AddAgent(BehaviorTypes BehaviorType, bool AutoOrient)
 {
 	ImGui_Agent ImGuiAgent = {};
-	ImGuiAgent.Agent = GetWorld()->SpawnActor<ASteeringAgent>(SteeringAgentClass, FVector{0,0,90}, FRotator::ZeroRotator);
+	ImGuiAgent.Agent = GetWorld()->SpawnActor<ASteeringAgent>(SteeringAgentClass, FVector{ 0,0,90 }, FRotator::ZeroRotator);
 	if (IsValid(ImGuiAgent.Agent))
 	{
 		ImGuiAgent.SelectedBehavior = static_cast<int>(BehaviorType);
 		ImGuiAgent.SelectedTarget = -1; // Mouse
-		
+
 		SetAgentBehavior(ImGuiAgent);
 
 		SteeringAgents.push_back(std::move(ImGuiAgent));
-		
+
 		RefreshTargetLabels();
 
 		return true;
@@ -222,25 +221,48 @@ void ALevel_SteeringBehaviors::RemoveAgent(unsigned int Index)
 void ALevel_SteeringBehaviors::SetAgentBehavior(ImGui_Agent& Agent)
 {
 	Agent.Behavior.reset();
-	
+
 	switch (static_cast<BehaviorTypes>(Agent.SelectedBehavior))
 	{
-	//TODO; Implement behaviors setting here
+	case BehaviorTypes::Seek:
+		Agent.Behavior = std::make_unique<Seek>();
+		break;
+	case BehaviorTypes::Wander:
+		Agent.Behavior = std::make_unique<Wander>();
+		break;
+	case BehaviorTypes::Flee:
+		Agent.Behavior = std::make_unique<Flee>();
+		break;
+	case BehaviorTypes::Arrive:
+		Agent.Behavior = std::make_unique<Arrive>();
+		break;
+	case BehaviorTypes::Evade:
+		Agent.Behavior = std::make_unique<Evade>();
+		break;
+	case BehaviorTypes::Pursuit:
+		Agent.Behavior = std::make_unique<Pursuit>();
+		break;
+	case BehaviorTypes::Face:
+		Agent.Behavior = std::make_unique<Face>();
+		// Face behavior should not auto-orient since it controls rotation manually
+		Agent.Agent->SetIsAutoOrienting(false);
+		break;
 	default:
-		assert(false); // Incorrect Agent Behavior gotten during SetAgentBehavior()	
+		Agent.Behavior = std::make_unique<Seek>();
+		break;
 	}
 
 	UpdateTarget(Agent);
-	
+
 	Agent.Agent->SetSteeringBehavior(Agent.Behavior.get());
 }
 
 void ALevel_SteeringBehaviors::RefreshTargetLabels()
 {
 	TargetLabels.clear();
-	
+
 	TargetLabels.push_back("Mouse");
-	for (int i{0}; i < SteeringAgents.size(); ++i)
+	for (int i{ 0 }; i < SteeringAgents.size(); ++i)
 	{
 		TargetLabels.push_back(std::format("Agent {}", i));
 	}
@@ -249,7 +271,7 @@ void ALevel_SteeringBehaviors::RefreshTargetLabels()
 void ALevel_SteeringBehaviors::UpdateTarget(ImGui_Agent& Agent)
 {
 	// Note: MouseTarget position is updated via Level BP every click
-	
+
 	bool const bUseMouseAsTarget = Agent.SelectedTarget < 0;
 	if (!bUseMouseAsTarget)
 	{
@@ -276,11 +298,10 @@ void ALevel_SteeringBehaviors::RefreshAgentTargets(unsigned int IndexRemoved)
 		if (i >= IndexRemoved)
 		{
 			auto& Agent = SteeringAgents[i];
-			if (Agent.SelectedTarget == IndexRemoved || i  == Agent.SelectedTarget)
+			if (Agent.SelectedTarget == IndexRemoved || i == Agent.SelectedTarget)
 			{
 				--Agent.SelectedTarget;
 			}
 		}
 	}
 }
-

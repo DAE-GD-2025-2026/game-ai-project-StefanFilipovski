@@ -26,7 +26,7 @@ public:
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
-	
+
 	virtual void BeginDestroy() override;
 
 private:
@@ -38,6 +38,7 @@ private:
 		Arrive,
 		Evade,
 		Pursuit,
+		Face,
 
 		// @ End
 		Count
@@ -45,17 +46,17 @@ private:
 
 	struct ImGui_Agent final
 	{
-		ASteeringAgent* Agent{nullptr};
-		std::unique_ptr<ISteeringBehavior> Behavior{nullptr};
-		int SelectedBehavior{static_cast<int>(BehaviorTypes::Seek)};
+		ASteeringAgent* Agent{ nullptr };
+		std::unique_ptr<ISteeringBehavior> Behavior{ nullptr };
+		int SelectedBehavior{ static_cast<int>(BehaviorTypes::Seek) };
 		int SelectedTarget = -1;
 	};
-	
+
 	std::vector<ImGui_Agent> SteeringAgents{};
 	std::vector<std::string> TargetLabels{};
-	
+
 	int AgentIndexToRemove = -1;
-	
+
 	bool AddAgent(BehaviorTypes BehaviorType = BehaviorTypes::Wander, bool AutoOrient = true);
 	void RemoveAgent(unsigned int Index);
 	void SetAgentBehavior(ImGui_Agent& Agent);
