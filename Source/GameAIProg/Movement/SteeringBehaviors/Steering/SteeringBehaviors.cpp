@@ -73,7 +73,7 @@ SteeringOutput Arrive::CalculateSteering(float DeltaT, ASteeringAgent& Agent)
 	}
 	else if (Distance < SlowRadius)
 	{
-		// Inside slow radius 
+		// Inside slow radius - scale speed down
 		float SpeedFraction = (Distance - TargetRadius) / (SlowRadius - TargetRadius);
 		Agent.SetMaxLinearSpeed(OriginalMaxSpeed * SpeedFraction);
 		ToTarget.Normalize();
@@ -81,7 +81,7 @@ SteeringOutput Arrive::CalculateSteering(float DeltaT, ASteeringAgent& Agent)
 	}
 	else
 	{
-		// Outside slow radius 
+		// Outside slow radius - full speed
 		Agent.SetMaxLinearSpeed(OriginalMaxSpeed);
 		ToTarget.Normalize();
 		Output.LinearVelocity = ToTarget;
@@ -91,7 +91,9 @@ SteeringOutput Arrive::CalculateSteering(float DeltaT, ASteeringAgent& Agent)
 	if (Agent.GetDebugRenderingEnabled())
 	{
 		FVector AgentLoc = Agent.GetActorLocation();
+		
 		DrawDebugCircle(Agent.GetWorld(), AgentLoc, SlowRadius, 32, FColor::Blue, false, -1.f, 0, 2.f, FVector(0, 1, 0), FVector(1, 0, 0));
+		
 		DrawDebugCircle(Agent.GetWorld(), AgentLoc, TargetRadius, 32, FColor::Orange, false, -1.f, 0, 2.f, FVector(0, 1, 0), FVector(1, 0, 0));
 	}
 
@@ -110,9 +112,6 @@ SteeringOutput Face::CalculateSteering(float DeltaT, ASteeringAgent& Agent)
 	if (ToTarget.IsNearlyZero())
 		return Output;
 
-
-
-
 	// Desired angle in degrees 
 	float DesiredAngle = FMath::RadiansToDegrees(FMath::Atan2(ToTarget.Y, ToTarget.X));
 	float CurrentAngle = Agent.GetRotation();
@@ -120,13 +119,11 @@ SteeringOutput Face::CalculateSteering(float DeltaT, ASteeringAgent& Agent)
 	// Find the shortest angular difference
 	float AngleDiff = FMath::FindDeltaAngleDegrees(CurrentAngle, DesiredAngle);
 
-
 	// Set angular velocity proportional to the difference, clamped to max speed
 	float MaxAngSpeed = Agent.GetMaxAngularSpeed();
 	Output.AngularVelocity = FMath::Clamp(AngleDiff / DeltaT, -MaxAngSpeed, MaxAngSpeed) * DeltaT;
 
 	// Debug rendering
-
 	if (Agent.GetDebugRenderingEnabled())
 	{
 		DrawDebugDirectionalArrow(
@@ -147,11 +144,9 @@ SteeringOutput Pursuit::CalculateSteering(float DeltaT, ASteeringAgent& Agent)
 {
 	SteeringOutput Output{};
 
-
 	// Calculate time to reach the target based on distance and agent speed
 	FVector2D ToTarget = Target.Position - Agent.GetPosition();
 	float Distance = ToTarget.Length();
-
 	float Speed = Agent.GetMaxLinearSpeed();
 
 	float TimeToReach = (Speed > 0.f) ? (Distance / Speed) : 0.f;
@@ -164,17 +159,16 @@ SteeringOutput Pursuit::CalculateSteering(float DeltaT, ASteeringAgent& Agent)
 	ToPredict.Normalize();
 	Output.LinearVelocity = ToPredict;
 
-	// Debug rendering
+	
 	if (Agent.GetDebugRenderingEnabled())
 	{
-		// Draw predicted position
+		
 		DrawDebugSphere(
 			Agent.GetWorld(),
 			FVector{ PredictedPosition, Agent.GetActorLocation().Z },
 			15.f, 8, FColor::Magenta, false, -1.f, 0, 2.f
 		);
-
-		// Draw line to predicted position
+		
 		DrawDebugDirectionalArrow(
 			Agent.GetWorld(),
 			Agent.GetActorLocation(),
@@ -193,22 +187,26 @@ SteeringOutput Evade::CalculateSteering(float DeltaT, ASteeringAgent& Agent)
 {
 	SteeringOutput Output{};
 
-
-	// Same prediction as Pursuit
 	FVector2D ToTarget = Target.Position - Agent.GetPosition();
 	float Distance = ToTarget.Length();
-	float Speed = Agent.GetMaxLinearSpeed();
 
+	// If outside evade radius, mark as invalid
+	if (Distance > EvadeRadius)
+	{
+		Output.IsValid = false;
+		return Output;
+	}
+
+	float Speed = Agent.GetMaxLinearSpeed();
 	float TimeToReach = (Speed > 0.f) ? (Distance / Speed) : 0.f;
 
 	FVector2D PredictedPosition = Target.Position + Target.LinearVelocity * TimeToReach;
 
 	// Flee from predicted position
-
-
 	FVector2D FromPredict = Agent.GetPosition() - PredictedPosition;
 	FromPredict.Normalize();
 	Output.LinearVelocity = FromPredict;
+	Output.IsValid = true;
 
 	// Debug rendering
 	if (Agent.GetDebugRenderingEnabled())
@@ -218,7 +216,6 @@ SteeringOutput Evade::CalculateSteering(float DeltaT, ASteeringAgent& Agent)
 			FVector{ PredictedPosition, Agent.GetActorLocation().Z },
 			15.f, 8, FColor::Cyan, false, -1.f, 0, 2.f
 		);
-
 		DrawDebugDirectionalArrow(
 			Agent.GetWorld(),
 			Agent.GetActorLocation(),
@@ -239,9 +236,7 @@ SteeringOutput Wander::CalculateSteering(float DeltaT, ASteeringAgent& Agent)
 	float AngleOffset = FMath::RandRange(-m_MaxAngleChange, m_MaxAngleChange);
 	m_WanderAngle += AngleOffset;
 
-
-
-	// Get agent's forward direction
+	// Get agent's forward direction 
 	float AgentYawRad = FMath::DegreesToRadians(Agent.GetRotation());
 	FVector2D AgentForward{ FMath::Cos(AgentYawRad), FMath::Sin(AgentYawRad) };
 
@@ -251,13 +246,10 @@ SteeringOutput Wander::CalculateSteering(float DeltaT, ASteeringAgent& Agent)
 	// Calculate the point on the circle using the wander angle
 	FVector2D WanderPoint = CircleCenter + FVector2D{ FMath::Cos(m_WanderAngle), FMath::Sin(m_WanderAngle) } *m_Radius;
 
-
 	// Use Seek logic toward the wander point
 	Target.Position = WanderPoint;
 
-
-
-	// Debug rendering
+	
 	if (Agent.GetDebugRenderingEnabled())
 	{
 		FVector CircleCenterWorld{ CircleCenter, Agent.GetActorLocation().Z };

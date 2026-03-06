@@ -1,102 +1,150 @@
-﻿#include "Level_CombinedSteering.h"
-
+#include "Level_CombinedSteering.h"
 #include "imgui.h"
 
-
-// Sets default values
 ALevel_CombinedSteering::ALevel_CombinedSteering()
 {
-	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
 }
 
-// Called when the game starts or when spawned
 void ALevel_CombinedSteering::BeginPlay()
 {
 	Super::BeginPlay();
 
+	// DRUNK AGENT (BlendedSteering: 50% Seek + 50% Wander)
+	pDrunkAgent = GetWorld()->SpawnActor<ASteeringAgent>(
+		SteeringAgentClass, FVector{ -200.f, 0.f, 90.f }, FRotator::ZeroRotator);
+
+	if (pDrunkAgent)
+	{
+		pSeek = std::make_unique<Seek>();
+		pWander = std::make_unique<Wander>();
+
+		pBlendedSteering = std::make_unique<BlendedSteering>(
+			std::vector<BlendedSteering::WeightedBehavior>{
+				{ pSeek.get(), 0.5f },
+				{ pWander.get(), 0.5f }
+		}
+		);
+
+		// Set initial seek target to mouse
+		pSeek->SetTarget(MouseTarget);
+		pDrunkAgent->SetSteeringBehavior(pBlendedSteering.get());
+		pDrunkAgent->SetDebugRenderingEnabled(true);
+	}
+
+	// EVADING AGENT (PrioritySteering: Evade DrunkAgent to Wander)
+	pEvadingAgent = GetWorld()->SpawnActor<ASteeringAgent>(
+		SteeringAgentClass, FVector{ 200.f, 0.f, 90.f }, FRotator::ZeroRotator);
+
+	if (pEvadingAgent)
+	{
+		pEvade = std::make_unique<Evade>();
+		pEvadeWander = std::make_unique<Wander>();
+
+		pPrioritySteering = std::make_unique<PrioritySteering>(
+			std::vector<ISteeringBehavior*>{
+			pEvade.get(),
+				pEvadeWander.get()
+		}
+		);
+
+		pEvadingAgent->SetSteeringBehavior(pPrioritySteering.get());
+		pEvadingAgent->SetDebugRenderingEnabled(true);
+	}
 }
 
 void ALevel_CombinedSteering::BeginDestroy()
 {
 	Super::BeginDestroy();
-
 }
 
-// Called every frame
 void ALevel_CombinedSteering::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
-	
+
 #pragma region UI
-	//UI
 	{
-		//Setup
 		bool windowActive = true;
 		ImGui::SetNextWindowPos(WindowPos);
 		ImGui::SetNextWindowSize(WindowSize);
 		ImGui::Begin("Game AI", &windowActive, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse);
-	
-		//Elements
+
 		ImGui::Text("CONTROLS");
 		ImGui::Indent();
-		ImGui::Text("LMB: place target");
-		ImGui::Text("RMB: move cam.");
-		ImGui::Text("Scrollwheel: zoom cam.");
+		ImGui::Text("LMB: place target (DrunkAgent seek)");
+		ImGui::Text("WASD: move cam");
+		ImGui::Text("Scrollwheel: zoom cam");
 		ImGui::Unindent();
-	
+
 		ImGui::Spacing();
 		ImGui::Separator();
 		ImGui::Spacing();
-		ImGui::Spacing();
-	
+
 		ImGui::Text("STATS");
 		ImGui::Indent();
 		ImGui::Text("%.3f ms/frame", 1000.0f / ImGui::GetIO().Framerate);
 		ImGui::Text("%.1f FPS", ImGui::GetIO().Framerate);
 		ImGui::Unindent();
-	
+
 		ImGui::Spacing();
 		ImGui::Separator();
 		ImGui::Spacing();
+
+		ImGui::Text("Combined Steering");
 		ImGui::Spacing();
-	
-		ImGui::Text("Flocking");
-		ImGui::Spacing();
-		ImGui::Spacing();
-	
+
 		if (ImGui::Checkbox("Debug Rendering", &CanDebugRender))
 		{
-   // TODO: Handle the debug rendering of your agents here :)
+			if (pDrunkAgent)   pDrunkAgent->SetDebugRenderingEnabled(CanDebugRender);
+			if (pEvadingAgent) pEvadingAgent->SetDebugRenderingEnabled(CanDebugRender);
 		}
-		ImGui::Checkbox("Trim World", &TrimWorld->bShouldTrimWorld);
-		if (TrimWorld->bShouldTrimWorld)
+
+		ImGui::Spacing();
+		ImGui::Text("DrunkAgent Weights");
+
+		if (pBlendedSteering)
 		{
-			ImGuiHelpers::ImGuiSliderFloatWithSetter("Trim Size",
-				TrimWorld->GetTrimWorldSize(), 1000.f, 3000.f,
-				[this](float InVal) { TrimWorld->SetTrimWorldSize(InVal); });
+			float seekWeight = *pBlendedSteering->GetWeight(pSeek.get());
+			float wanderWeight = *pBlendedSteering->GetWeight(pWander.get());
+
+			if (ImGui::SliderFloat("Seek##drunk", &seekWeight, 0.f, 1.f, "%.2f"))
+				*pBlendedSteering->GetWeight(pSeek.get()) = seekWeight;
+
+			if (ImGui::SliderFloat("Wander##drunk", &wanderWeight, 0.f, 1.f, "%.2f"))
+				*pBlendedSteering->GetWeight(pWander.get()) = wanderWeight;
 		}
-		
-		ImGui::Spacing();
-		ImGui::Spacing();
-		ImGui::Spacing();
-	
-		ImGui::Text("Behavior Weights");
-		ImGui::Spacing();
 
+		ImGui::Spacing();
+		ImGui::Text("EvadingAgent");
+		ImGui::Text("Evade Radius: %.0f", EvadeRadius);
+		ImGui::SliderFloat("##evaderadius", &EvadeRadius, 50.f, 600.f, "%.0f");
 
-		// ImGuiHelpers::ImGuiSliderFloatWithSetter("Seek",
-		// 	pBlendedSteering->GetWeightedBehaviorsRef()[0].Weight, 0.f, 1.f,
-		// 	[this](float InVal) { pBlendedSteering->GetWeightedBehaviorsRef()[0].Weight = InVal; }, "%.2f");
-		//
-		// ImGuiHelpers::ImGuiSliderFloatWithSetter("Wander",
-		// pBlendedSteering->GetWeightedBehaviorsRef()[1].Weight, 0.f, 1.f,
-		// [this](float InVal) { pBlendedSteering->GetWeightedBehaviorsRef()[1].Weight = InVal; }, "%.2f");
-	
-		//End
 		ImGui::End();
 	}
 #pragma endregion
 
-	// Combined Steering Update
+	// Update DrunkAgent seek target to mouse
+	if (pDrunkAgent && pSeek)
+		pSeek->SetTarget(MouseTarget);
+
+	// Update EvadingAgents evade target to DrunkAgent
+	if (pEvadingAgent && pEvade && pDrunkAgent)
+	{
+		FTargetData EvadeTarget;
+		EvadeTarget.Position = pDrunkAgent->GetPosition();
+		EvadeTarget.LinearVelocity = pDrunkAgent->GetLinearVelocity();
+		EvadeTarget.Orientation = pDrunkAgent->GetRotation();
+		pEvade->SetTarget(EvadeTarget);
+
+		// Draw evade radius debug circle
+		if (CanDebugRender)
+		{
+			DrawDebugCircle(
+				GetWorld(),
+				pDrunkAgent->GetActorLocation(),
+				EvadeRadius, 32, FColor::Red, false, -1.f, 0, 2.f,
+				FVector(0, 1, 0), FVector(1, 0, 0)
+			);
+		}
+	}
 }

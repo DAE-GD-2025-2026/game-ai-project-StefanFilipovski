@@ -97,6 +97,7 @@ public:
 
 //***********
 // EVADE
+// Sets IsValid=false when target is outside EvadeRadius (used with PrioritySteering)
 //***********
 class Evade : public ISteeringBehavior
 {
@@ -105,6 +106,11 @@ public:
 	virtual ~Evade() override = default;
 
 	virtual SteeringOutput CalculateSteering(float DeltaT, ASteeringAgent& Agent) override;
+
+	void SetEvadeRadius(float Radius) { EvadeRadius = Radius; }
+
+private:
+	float EvadeRadius{ 300.f };
 };
 
 //***********
@@ -125,6 +131,6 @@ public:
 protected:
 	float m_OffsetDistance{ 150.f };  
 	float m_Radius{ 100.f };          
-	float m_MaxAngleChange{ FMath::DegreesToRadians(45.f) }; // Max wander angle change per frame
-	float m_WanderAngle{ 0.f };       
+	float m_MaxAngleChange{ FMath::DegreesToRadians(45.f) }; 
+	float m_WanderAngle{ 0.f };      
 };
