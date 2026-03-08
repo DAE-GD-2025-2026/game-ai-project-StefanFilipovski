@@ -10,7 +10,7 @@ void ALevel_CombinedSteering::BeginPlay()
 {
 	Super::BeginPlay();
 
-	// DRUNK AGENT (BlendedSteering: 50% Seek + 50% Wander)
+	// DRUNK AGENT 
 	pDrunkAgent = GetWorld()->SpawnActor<ASteeringAgent>(
 		SteeringAgentClass, FVector{ -200.f, 0.f, 90.f }, FRotator::ZeroRotator);
 
@@ -32,7 +32,7 @@ void ALevel_CombinedSteering::BeginPlay()
 		pDrunkAgent->SetDebugRenderingEnabled(true);
 	}
 
-	// EVADING AGENT (PrioritySteering: Evade DrunkAgent to Wander)
+	// EVADING AGENT 
 	pEvadingAgent = GetWorld()->SpawnActor<ASteeringAgent>(
 		SteeringAgentClass, FVector{ 200.f, 0.f, 90.f }, FRotator::ZeroRotator);
 

@@ -14,8 +14,7 @@
 #include "Debug/ReporterGraph.h"
 #include "Movement/SteeringBehaviors/SteeringAgent.h"
 
-// --- Cell ---
-// ------------
+// Cell 
 struct Cell final
 {
 	Cell(float Left, float Bottom, float Width, float Height);
@@ -27,8 +26,7 @@ struct Cell final
 	FRect BoundingBox;
 };
 
-// --- Partitioned Space ---
-// -------------------------
+//Partitioned Space 
 class CellSpace final
 {
 public:
