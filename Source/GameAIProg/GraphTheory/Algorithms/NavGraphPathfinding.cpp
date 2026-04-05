@@ -20,7 +20,6 @@ std::vector<FVector2D> NavMeshPathfinding::FindPath(const FVector2D& startPos, c
 	TriPolygon::Triangle const* pStartTriangle = pNavPoly->GetClosestTriangleToPosition(startPos, StartSnapped);
 	TriPolygon::Triangle const* pEndTriangle = pNavPoly->GetClosestTriangleToPosition(endPos, EndSnapped);
 
-	// Check if valid triangles exist
 	if (!pStartTriangle || !pEndTriangle)
 		return finalPath;
 
@@ -35,7 +34,7 @@ std::vector<FVector2D> NavMeshPathfinding::FindPath(const FVector2D& startPos, c
 	// Clone the graph so we can add temporary start/end nodes
 	std::unique_ptr<NavGraph> pClonedGraph = pNavGraph->Clone();
 
-	// Create start node (LineIdx = -1, not on an edge)
+	// Create start node 
 	auto pStartNode = std::make_unique<NavGraphNode>(StartSnapped, -1);
 	int StartNodeId = pClonedGraph->AddNode(std::move(pStartNode));
 
@@ -56,7 +55,7 @@ std::vector<FVector2D> NavMeshPathfinding::FindPath(const FVector2D& startPos, c
 		}
 	}
 
-	// Create end node (LineIdx = -1, not on an edge)
+	// Create end node 
 	auto pEndNode = std::make_unique<NavGraphNode>(EndSnapped, -1);
 	int EndNodeId = pClonedGraph->AddNode(std::move(pEndNode));
 
@@ -83,16 +82,18 @@ std::vector<FVector2D> NavMeshPathfinding::FindPath(const FVector2D& startPos, c
 
 	std::vector<Node*> AStarPath = Pathfinder.FindPath(pStart, pEnd);
 
-	
+	// Save A* node positions for debug rendering
 	for (Node* pNode : AStarPath)
 	{
-		finalPath.push_back(pNode->GetPosition());
 		debugNodePositions.push_back(pNode->GetPosition());
 	}
 
-	// Optional: Run SSFA path smoothing (uncomment when ready)
-	// debugPortals = SSFA::FindPortals(AStarPath, *pNavPoly);
-	// finalPath = SSFA::OptimizePortals(debugPortals, *pNavPoly);
+	// SSFA path smoothing
+	if (!AStarPath.empty())
+	{
+		debugPortals = SSFA::FindPortals(AStarPath, *pNavPoly);
+		finalPath = SSFA::OptimizePortals(debugPortals, *pNavPoly);
+	}
 
 	return finalPath;
 }
